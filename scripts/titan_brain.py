@@ -1,116 +1,78 @@
 import os
+import json
+from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
+from titan_memory import TitanMemory
+from titan_intel import TitanIntel
+from titan_web import TitanWeb
+from titan_mail import TitanMail
 from groq import Groq
-from titan_memory import MemoryManager # Importing your new separate file
-from titan_ui import TitanUI
-from rich.prompt import Prompt
-from titan_reasoning import ReasoningEngine
+
+console = Console()
 
 class TitanBrain:
     def __init__(self):
-        # ... (existing init code)
-        self.reasoner = ReasoningEngine(self)
-        self.use_tot = False  # Toggle this on/off
-
-    def think(self, prompt):
-        # --- Add this block ---
-        if prompt.lower().startswith("/tot "):
-            self.use_tot = not self.use_tot
-            return f"Tree of Thought mode is now {'ON' if self.use_tot else 'OFF'}."
-        
-        if self.use_tot:
-            return self.reasoner.get_tot_response(prompt)
-
-        def think(self, prompt):
-            print(f"DEBUG: use_tot is {self.use_tot}")
-
-        # Handle the /tot command
-        if prompt.strip().lower() == "/tot":
-            self.use_tot = not self.use_tot
-            # Make sure this line is complete:
-            return f"ToT is now {'ON' if self.use_tot else 'OFF'}"
-
-        # If ToT is active, use the reasoner
-        if self.use_tot:
-            print("DEBUG: Entering Reasoning Engine...")
-            self.reasoner.get_tot_response(prompt)
-        # Your standard code continues below...
-
-class TitanBrain:
-    def __init__(self):
+        # API and Tool Initialization
         self.client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-        self.model = "llama-3.3-70b-versatile"
-        self.memory = MemoryManager()
-        self.history = []
-        self.ui = TitanUI()
-        self.modes = {
-            "default": "You are Kaida. Be helpful, concise, and friendly.",
-            "serious": "You are Kaida, the analytical assistant. Be direct, factual, and strictly objective.",
-            "creative": "You are Kaida, the creative muse. Use metaphors and be imaginative.",
-            "humorous": "You are Kaida, the witty companion. Use humor and playful banter."
-        }
-        self.current_mode = "default"
+        self.model = "llama-3.1-8b-instant"
+        self.memory = TitanMemory()
+        self.intel = TitanIntel()
+        self.web = TitanWeb()
+        self.mail = TitanMail()
 
-    def think(self, prompt):
-        self.history.append({"role": "user", "content": prompt})
-        if len(self.history) > 10: self.history.pop(0)
+    def think(self, user_input):
+        history_context = self.memory.get_context()
+        
+        # 1. Hardware Intel Logic
+        if any(word in user_input.lower() for word in ["battery", "location", "status"]):
+            user_input += f" (System Update: {self.intel.get_stats()})"
 
-        self.modes["default"] = """
-You are Kaida. For complex questions, follow this process:
-1. Analyze the user's intent.
-2. Break the task into 2-3 logical steps.
-3. Think through each step quietly.
-4. Provide the final, accurate answer.
-Always "show your work" before giving the conclusion.
-"""
+        # 2. Web Search Logic
+        if "search" in user_input.lower():
+            with console.status("[bold blue]Scanning the Web...", spinner="dots"):
+                web_data = self.web.search(user_input)
+                user_input += f" (Web Data: {web_data})"
 
-        self.modes = {
-    "default": (
-        "You are Kaida. You are a long-term assistant for Larry. "
-        "DO NOT use introductory pleasantries like 'nice to meet you' or 'welcome'. "
-        "Recognize that you have a shared history with the user. "
-        "Be direct, helpful, and concise."
-    ),
-    # ... keep the rest of your modes
-}
+        # 3. Mail Dispatch Logic
+        if "email to" in user_input.lower():
+            try:
+                # Basic parsing: "email to example@gmail.com message body"
+                parts = user_input.split("email to ")[1].split(" ", 1)
+                target_email = parts[0]
+                body_content = parts[1] if len(parts) > 1 else "No body provided."
+                
+                with console.status("[bold yellow]Sending Email...", spinner="envelope"):
+                    mail_status = self.mail.send(target_email, "Titan OS Report", body_content)
+                user_input += f" (Status: {mail_status})"
+            except Exception as e:
+                user_input += f" (Mail Parse Error: {e})"
 
+        # 4. Processing via Groq
+        messages = [
+            {"role": "system", "content": "You are Kaida, a Titan OS assistant. Be concise and professional."},
+            {"role": "assistant", "content": f"Context: {history_context}"},
+            {"role": "user", "content": user_input}
+        ]
 
-        if user_input.startswith("/mode "):
-            mode = user_input.split(" ")[1]
-            if mode in brain.modes:
-                brain.current_mode = mode
-                brain.ui.show_response(f"Personality switched to {mode}.")
-            else:
-                brain.ui.show_response("Available modes: default, serious, creative, humorous.")
-
-        context = self.memory.get_context()
-        messages = [{"role": "system", "content": f"You are Kaida. Info: {context}"}] + self.history
-        system_content = f"{self.modes[self.current_mode]} Info: {context}"
-        messages = [{"role": "system", "content": system_content}] + self.history
         completion = self.client.chat.completions.create(messages=messages, model=self.model)
         response = completion.choices[0].message.content
-
-        self.history.append({"role": "assistant", "content": response})
+        
+        self.memory.save(user_input, response)
         return response
 
 if __name__ == "__main__":
     brain = TitanBrain()
-    # Use your UI design for the header
-    brain.ui.show_header() 
+    console.print(Panel("[bold cyan]KAIDA ONLINE[/bold cyan]\n[dim]Intel, Web, & Mail Patched[/dim]", border_style="blue"))
     
     while True:
-        # Using standard input but then passing it to the UI
-        user_input = Prompt.ask("[bold green]You[/bold green]")
-        
-        if user_input.lower() == 'quit':
-            brain.memory.archive_session(brain.history, brain.client, brain.model)
-            break
-        
-        # This is where the magic happens:
-        # 1. Show the status animation
-        with brain.ui.show_status():
-            response = brain.think(user_input)
+        try:
+            u_in = console.input("[bold green]You:[/bold green] ")
+            if u_in.lower() in ["exit", "quit"]:
+                brain.memory.archive_session()
+                break
             
-        # 2. Show the fancy panel response
-        brain.ui.show_response(response)
-
-
+            res = brain.think(u_in)
+            console.print(Panel(Text(res, style="white"), title="[bold magenta]Kaida[/bold magenta]", border_style="cyan"))
+        except KeyboardInterrupt:
+            break

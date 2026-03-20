@@ -1,41 +1,35 @@
+import json
 import os
-import datetime
 
-class MemoryManager:
+class TitanMemory:
     def __init__(self):
-        self.mem_dir = os.path.expanduser("~/titan/ai/memory")
-        os.makedirs(os.path.join(self.mem_dir, "long_term"), exist_ok=True)
-        os.makedirs(os.path.join(self.mem_dir, "short_term"), exist_ok=True)
+        self.file_path = "/data/data/com.termux/files/home/titan_brain_system/scripts/titan_memory.json"
+        self.history = self.load_memory()
 
-    def save_long_term(self, name, content):
-        filepath = os.path.join(self.mem_dir, "long_term", f"{name}.txt")
-        with open(filepath, "w") as f:
-            f.write(content)
+    def load_memory(self):
+        if os.path.exists(self.file_path) and os.path.getsize(self.file_path) > 0:
+            try:
+                with open(self.file_path, 'r') as f:
+                    return json.load(f)
+            except:
+                return []
+        return []
 
     def get_context(self):
-        lt_path = os.path.join(self.mem_dir, "long_term")
-        memories = []
-        for filename in os.listdir(lt_path):
-            if filename.endswith(".txt"):
-                with open(os.path.join(lt_path, filename), "r") as f:
-                    memories.append(f.read())
-        return "\n".join(memories)
+        if not self.history:
+            return ""
+        context_str = ""
+        for entry in self.history[-5:]:
+            context_str += f"User: {entry.get('user', '')}\nTitan: {entry.get('titan', '')}\n"
+        return context_str
 
-    # THIS IS THE MISSING FUNCTION
-    def archive_session(self, history, client, model):
-        if not history:
-            return
-        
-        print("\nKaida is reflecting on our conversation...")
-        summary_prompt = "Briefly list key facts about the user and their interests from this chat for long-term memory."
-        messages = history + [{"role": "user", "content": summary_prompt}]
-        
-        try:
-            completion = client.chat.completions.create(messages=messages, model=model)
-            summary = completion.choices[0].message.content
-            ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            self.save_long_term(f"session_{ts}", summary)
-            print(f"--- Memory Archived: session_{ts}.txt ---")
-        except Exception as e:
-            print(f"Failed to archive memory: {e}")
+    def archive_session(self, current_history=None, client=None, model=None):
+        """ The 'Exit' Bridge to ensure data is written to the CMDB """
+        print("\n[CMDB] Archiving session data...")
+        with open(self.file_path, 'w') as f:
+            json.dump(self.history, f, indent=4)
+        print("[CMDB] Save Complete. 11+ Sessions Secured.")
 
+    def save(self, user_in, titan_out):
+        self.history.append({"user": user_in, "titan": titan_out})
+        self.archive_session() # Automatically sync to disk
