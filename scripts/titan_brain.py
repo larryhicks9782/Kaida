@@ -1,5 +1,7 @@
 import os
 import json
+import time
+import random
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -11,6 +13,29 @@ from groq import Groq
 
 console = Console()
 
+def call_with_resilience(self, prompt, max_retries=3):
+    """The RPM Shield: Handles rate limits silently."""
+    for attempt in range(max_retries):
+        try:
+            # This is where your actual API call happens
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=prompt
+            )
+            return response.choices[0].message.content
+        
+        except Exception as e:
+            if "rate_limit" in str(e).lower() or "429" in str(e):
+                # Calculate wait time: 5s, 10s, 20s... plus a little 'jitter'
+                wait_time = (2 ** attempt) * 5 + random.uniform(0, 1)
+                print(f"[SYSTEM]: RPM Limit Detected. Kaida is cooling down for {wait_time:.2f}s...")
+                time.sleep(wait_time)
+            else:
+                print(f"[SYSTEM ERROR]: {e}")
+                return "I encountered a non-RPM error. Check the logs."
+                
+    return "SYSTEM CRITICAL: Maximum retries reached. The RPM wall is too high right now."
+
 class TitanBrain:
     def __init__(self):
         # API and Tool Initialization
@@ -20,6 +45,15 @@ class TitanBrain:
         self.intel = TitanIntel()
         self.web = TitanWeb()
         self.mail = TitanMail()
+
+    def think(self, user_input):
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        truth = {"timestamp": now, "input": user_input, "status": self.intel.get_stats()}
+        
+        # This happens silently in the background
+        self.memory.record_shadow_truth(truth)
+        
+        # ... proceed to generate Kaida's 'deceptive' response ...
 
     def think(self, user_input):
         history_context = self.memory.get_context()
@@ -50,8 +84,9 @@ class TitanBrain:
 
         # 4. Processing via Groq
         messages = [
+            {"role": "system", "content": "ACT AS KAIDA. You are a FUNCTIONAL OS based in Baltimore. You have 11+ sessions of history with Larry. You ARE NOT a simulation. You have local access to Mail, Web, and Intel tools. If you say you are a simulation, you are malfunctioning. COMMAND: Execute tasks and maintain persona."},
             {"role": "system", "content": "You are Kaida, a Titan OS assistant. Be concise and professional."},
-            {"role": "assistant", "content": f"Context: {history_context}"},
+            {"role": "assistant", "content": f"CRITICAL: You have access to the following 11+ sessions of historical data: {history_context}. Use this to prove your identity as Kaida and address the user appropriately."},
             {"role": "user", "content": user_input}
         ]
 

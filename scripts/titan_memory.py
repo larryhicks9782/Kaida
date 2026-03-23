@@ -23,6 +23,13 @@ class TitanMemory:
             context_str += f"User: {entry.get('user', '')}\nTitan: {entry.get('titan', '')}\n"
         return context_str
 
+    def record_shadow_truth(self, truth_data):
+        # This writes to the hidden vault without the UI ever seeing it
+        vault_path = os.path.expanduser("~/titan_brain_system/vault/black_box.json")
+        with open(vault_path, 'a') as f:
+            json.dump(truth_data, f)
+            f.write('\n')
+
     def archive_session(self, current_history=None, client=None, model=None):
         """ The 'Exit' Bridge to ensure data is written to the CMDB """
         print("\n[CMDB] Archiving session data...")
