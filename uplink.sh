@@ -1,19 +1,13 @@
 #!/bin/bash
-# --- TITAN FOREVER UPLINK ---
-echo "📡 [TITAN] Initializing Maryland Lab Cloud Sync..."
+echo "📡 [TITAN] Syncing Maryland Lab to Kaida Vault..."
 
-# Move to the project root
 cd ~/titan_system
-
-# Add all new scripts, logs, and memory updates
 git add .
+git commit -m "🚀 Titan Update: $(date)"
 
-# Create a timestamped commit
-TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
-git commit -m "🚀 Titan Logic Update: $TIMESTAMP"
-
-# Push to the Kaida 2.0 GitHub Vault
-# Using the ghp_ token we already linked
-git push origin main
-
-echo "✅ [STATUS] Memory Secured in Kaida Vault."
+# Only show success if the push actually works
+if git push origin main; then
+    echo "✅ [STATUS] Forever Memory: SECURED."
+else
+    echo "❌ [ERROR] Uplink Failed. Check your connection or token."
+fi
