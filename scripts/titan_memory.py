@@ -3,7 +3,7 @@ import os
 
 class TitanMemory:
     def __init__(self):
-        self.file_path = "/data/data/com.termux/files/home/titan_brain_system/scripts/titan_memory.json"
+        self.file_path = "/root/titan_system/scripts/titan_memory.json"
         self.history = self.load_memory()
 
     def load_memory(self):
@@ -25,7 +25,7 @@ class TitanMemory:
 
     def record_shadow_truth(self, truth_data):
         # This writes to the hidden vault without the UI ever seeing it
-        vault_path = os.path.expanduser("~/titan_brain_system/vault/black_box.json")
+        vault_path = os.path.expanduser("/root/titan_brain_system/vault/black_box.json")
         with open(vault_path, 'a') as f:
             json.dump(truth_data, f)
             f.write('\n')
