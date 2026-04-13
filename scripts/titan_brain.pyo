@@ -2,7 +2,6 @@ import os
 import json
 import time
 import random
-import pytz
 from datetime import datetime
 from rich.console import Console
 from rich.panel import Panel
@@ -40,13 +39,6 @@ def call_with_resilience(self, prompt, max_retries=3):
 
 class TitanBrain:
     def __init__(self):
-        self.console = Console()
-        self.memory = TitanMemory()
-        self.web = TitanWeb()  # Connecting the web engine
-        self.intel = TitanIntel()
-        self.client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-
-    def __init__(self):
         # API and Tool Initialization
         self.client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
         self.model = "llama-3.1-8b-instant"
@@ -56,62 +48,29 @@ class TitanBrain:
         self.mail = TitanMail()
 
     def think(self, user_input):
-    # 1. Check if the user is asking for news/movies/weather
-        if "movie" in user_input.lower() or "box office" in user_input.lower():
-        # FORCE a real web search using your patched titan_web.py
-            from scripts.titan_web import TitanWeb
-        web = TitanWeb()
-        real_data = web.search("current box office April 2026")
-        
-        # 2. Feed that REAL data into her prompt
-        user_input = f"HERE IS THE ACTUAL DATA: {real_data}\n\nUSER REQUEST: {user_input}"
-
-    # 3. Now let her process the real info
-        return self.call_llm_api(user_input)
-
-        # 1. Standard Indent (4 spaces from 'def')
-        history_context = self.memory.get_context()
-        
-        # 2. Check for web trigger
-        if "http" in user_input:
-            # 3. Nested Indent (8 spaces total)
-            print("[*] Kaida is reading the site...")
-            
-            # Use the self.web instance we imported at the top
-            raw_data = self.web.fetch_content(user_input)
-            
-            # Combine raw data for Groq
-            user_input = f"CONTEXT: {raw_data} | REQUEST: {user_input}"
-
-        # 4. Resume 4-space indent
-        # self.client.chat.completions... (your Groq call goes here)
-
-        # 1. Check if the user is asking to look at a website
-        if "http" in user_input:
-            url = [word for word in user_input.split() if "http" in word][0]
-            web_content = self.web.fetch_content(url)
-            
-            # Feed the site data into the Groq prompt
-            prompt = f"The user wants info from this site: {url}. Content: {web_content}. User said: {user_input}"
-        else:
-            prompt = user_input
-
-        # 2. Send to Groq
-        # ... your existing Groq call code ...
-
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         truth = {"timestamp": now, "input": user_input, "status": self.intel.get_stats()}
         
         # This happens silently in the background
         self.memory.record_shadow_truth(truth)
-        
+        # Inside your input loop
+user_input = input("You: ")
+
+if "http" in user_input:
+    # Trigger the Web Engine
+    from titan_web import TitanWeb
+    web_engine = TitanWeb()
+    
+    print("[*] Kaida is reading the site...")
+    raw_data = web_engine.fetch_content(user_input)
+    
+    # Now send that raw_data to Groq to summarize it
+    response = groq_engine.ask(f"Summarize this info: {raw_data}")
+    print(f"Kaida: {response}")
+
         # ... proceed to generate Kaida's 'deceptive' response ..
     def think(self, user_input):
         history_context = self.memory.get_context()
-
-        if "search" in user_input.lower():
-            web_data = self.web.search(user_input) # This only works if you add .search() to TitanWeb!
-            user_input += f" (Web Data: {web_data})"
 
         # 1. Hardware Intel Logic
         if any(word in user_input.lower() for word in ["battery", "location", "status"]):
@@ -155,34 +114,7 @@ if __name__ == "__main__":
     brain = TitanBrain()
     console.print(Panel("[bold cyan]KAIDA ONLINE[/bold cyan]\n[dim]Intel, Web, & Mail Patched[/dim]", border_style="blue"))
     
-    # Inside your 'while True:' loop
-        # Main Loop
     while True:
-        try:
-            # 1. Grab the full Baltimore Reality
-            tz = pytz.timezone('America/New_York')
-            now = datetime.now(tz)
-            full_timestamp = now.strftime("%A, %B %d, %Y | %I:%M:%S %p")
-
-            # 2. Get User Input via Rich Console
-            u_in = console.input(f"[bold cyan][{full_timestamp}][/][bold green] LARRY @ TITAN: [/]")
-            
-            if u_in.lower() in ["exit", "quit", "bye"]:
-                console.print("[bold red]Shutting down Baltimore Node...[/]")
-                break
-
-            # 3. Inject reality into the brain's prompt
-            context_prompt = f"[SYSTEM_REALITY: {full_timestamp}] User: {u_in}"
-
-            # 4. Send to brain and get response
-            response = brain.think(context_prompt)
-            console.print(Panel(response, title="[bold magenta]KAIDA[/]", border_style="cyan"))
-
-        except KeyboardInterrupt:
-            break
-        except Exception as e:
-            console.print(f"[bold red][!] Brain Error: {str(e)}[/]")
-
         try:
             u_in = console.input("[bold green]You:[/bold green] ")
             if u_in.lower() in ["exit", "quit"]:
