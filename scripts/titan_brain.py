@@ -10,23 +10,25 @@ from titan_reasoning import ReasoningEngine
 # Titan Components
 from titan_memory import TitanMemory
 from titan_intel import TitanIntel
-from titan_web import TitanWeb
 from titan_mail import TitanMail
 from groq import Groq
 
 console = Console()
 
 class TitanBrain:
-    def __init__(self):
+    # Add 'web_instance=None' to the parentheses here:
+    def __init__(self, web_instance=None):
         # 1. API and Tool Initialization
         self.client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
         self.model = "llama-3.1-8b-instant"
         
-        # 2. Sub-module instances
+        # 2. Use the passed-in web instance, or create a new one if none provided
         self.memory = TitanMemory()
         self.intel = TitanIntel()
-        self.web = TitanWeb()
         self.mail = TitanMail()
+        
+        # This line is the fix:
+        self.web = web_instance
 
     def call_with_resilience(self, messages, max_retries=3):
         """The RPM Shield: Handles rate limits and API calls."""
